@@ -1,5 +1,7 @@
 import os
 import pandas as pd
+from openpyxl import Workbook
+from openpyxl.drawing.image import Image
 from paraview.simple import *
 from paraview.simple import SaveScreenshot
 
@@ -27,19 +29,30 @@ def take_screenshot(filename, view=None):
         view = GetActiveView()
     SaveScreenshot(filename, view=view, quality=100)
 
-def save_to_excel(image_paths, excel_file):
-    """Save image paths to an Excel file."""
-    writer = pd.ExcelWriter(excel_file, engine='xlsxwriter')
+def save_to_excel_with_openpyxl(image_paths, excel_file):
+    """Save image paths to an Excel file using openpyxl."""
+    from openpyxl import Workbook
+    from openpyxl.drawing.image import Image
+    
+    workbook = Workbook()
     
     for sheet_name, paths in image_paths.items():
-        df = pd.DataFrame(paths)
-        df.to_excel(writer, sheet_name=sheet_name, index=False)
+        worksheet = workbook.create_sheet(title=sheet_name)
         
-        worksheet = writer.sheets[sheet_name]
-        for idx, path in enumerate(paths):
-            worksheet.insert_image(idx+1, 0, path)
+        for idx, image_info in enumerate(paths):
+            label = image_info["Label"]
+            image_path = image_info["Path"]
+            
+            worksheet.cell(row=idx + 2, column=1, value=label)
+            
+            img = Image(image_path)
+            img.anchor = f'A{idx + 2}'
+            worksheet.add_image(img)
     
-    writer.save()
+    if 'Sheet' in workbook.sheetnames:
+        workbook.remove(workbook['Sheet'])
+    
+    workbook.save(excel_file)
 
 def main():
     input_file = "path/to/your/file.vtk"
@@ -80,8 +93,8 @@ def main():
     take_screenshot(mach_img)
     image_paths["mach"].append({"Label": "Mach", "Path": mach_img})
     
-    # Save to Excel
-    save_to_excel(image_paths, output_excel)
+    # Save to Excel with xlsxwriter or openpyxl
+    save_to_excel_with_openpyxl(image_paths, output_excel)
 
 if __name__ == "__main__":
     main()
